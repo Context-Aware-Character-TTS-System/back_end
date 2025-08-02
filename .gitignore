@@ -1,6 +1,1 @@
 SRS.pdf
-.env
-__pycache__/
-*.pyc
-test.db
-venv/
