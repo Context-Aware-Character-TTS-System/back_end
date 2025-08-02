@@ -1,11 +1,27 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from . import models, database, schemas, security
+from typing import Optional
 import jwt
+import os
+import uuid
+
+from . import models, database, schemas, security, utils
 
 app = FastAPI()
+
+# Define the directory for storing uploaded novels
+UPLOAD_DIRECTORY = "./uploaded_novels"
+
+# Ensure the upload directory exists
+os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
+
+# Create database tables on startup
+@app.on_event("startup")
+def on_startup():
+    models.Base.metadata.create_all(bind=database.engine)
+
 
 
 
@@ -59,4 +75,37 @@ def read_users_me(current_user: schemas.UserResponse = Depends(security.get_curr
 @app.get("/")
 def read_root():
     return {"message": "Context-Aware Character TTS System API"}
+
+@app.post("/novels/upload", response_model=schemas.NovelResponse)
+def upload_novel(
+    title: str = Form(...),
+    description: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(security.get_current_user),
+    db: Session = Depends(security.get_db)
+):
+    if not file.filename.endswith(".txt"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only .txt files are allowed")
+
+    # Generate a unique filename and path
+    file_extension = file.filename.split(".")[-1]
+    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    file_path = os.path.join(UPLOAD_DIRECTORY, unique_filename)
+
+    # Save the uploaded file
+    await utils.save_upload_file(file, file_path)
+
+    # Create a new novel entry in the database
+    db_novel = models.Novel(
+        title=title,
+        master_context=description, # Using master_context to store description for now
+        user_id=current_user.id,
+        status="pending",
+        full_audio_url=file_path # Store the local file path for now
+    )
+    db.add(db_novel)
+    db.commit()
+    db.refresh(db_novel)
+
+    return db_novel
 

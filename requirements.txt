@@ -7,6 +7,5 @@ passlib[bcrypt]
 python-multipart
 PyMySQL
 python-dotenv
-pytest
-httpx
-PyJWT
+aiofiles
+
