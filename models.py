@@ -38,3 +38,9 @@ class Sentence(Base):
     audio_url = Column(Text)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     novel = relationship("Novel", back_populates="sentences")
+
+class RevokedToken(Base):
+    __tablename__ = 'revoked_tokens'
+    id = Column(Integer, primary_key=True, index=True)
+    jti = Column(String, unique=True, nullable=False) # JWT ID
+    revoked_at = Column(DateTime, default=datetime.datetime.utcnow)
